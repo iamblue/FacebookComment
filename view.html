@@ -1,0 +1,176 @@
+<html>
+<head>
+	<script type="text/javascript" src="facebookcommon.js"></script>
+	<script type="text/javascript" src="heartcode-canvasloader-min-0.9.1.js"></script>
+	<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js"type="text/javascript"></script>
+</head>
+<body>
+	<div class="wishitem_fb">	
+		<!-- The following is showing loading before getting fb gragh datas from controller (ajax)-->	
+		<div id="canvasloader-container1" class="collect_content_div">
+		</div>
+		<script type="text/javascript">
+		collectLoading(); //loading.
+		getFbComments();  //Send ajax request.
+
+		function collectLoading(){
+			var loading_start_check =0;
+			collectLoadingPerson();
+		    function collectLoadingPerson() {
+		    	var cl = new CanvasLoader('canvasloader-container1');
+				cl.setColor('#737373'); // default is '#000000'
+				cl.setShape('spiral'); // default is 'oval'
+				cl.setDiameter(28); // default is 40
+				cl.setDensity(13); // default is 40
+				cl.setRange(0.6); // default is 1.3
+				cl.setSpeed(1); // default is 2
+				cl.setFPS(17); // default is 24
+				cl.show(); // Hidden by default
+				var loaderObj = document.getElementById("canvasLoader");
+		  		loaderObj.style["top"] = cl.getDiameter() * -0.5 + "px";
+		  		loaderObj.style["left"] = cl.getDiameter() * -0.5 + "px";
+		  	}
+		}
+		function getFbComments(){
+			var post_id = 'your post id',
+			access_token = 'your access_token',
+			count = '<?php echo $key ?>';
+
+			console.log(access_token); // show your access token
+			
+			$.ajax({
+				type: 'POST'
+				,url: SITE_URL+'/FacebookRequest/ajaxgetfbcomments'
+				,data: {
+					0: post_id,
+					1: access_token
+				}
+				,success:
+					function(graphData) {
+						showfbcomment(graphData,count,post_id,access_token);
+					}
+			})
+		}
+		/* The following is showing fb UI after getting fb gragh datas.*/
+		function showfbcomment(graphData,count,post_id,access_token){
+		var parsegraphData = JSON.parse(graphData),
+			userpost_id = parsegraphData.id,
+			username = parsegraphData.from.name,
+			userfb_id = parsegraphData.from.id;
+		
+		console.log (parsegraphData); // parese fb graph data
+		
+		jQuery('.wishitem_fb').each(function(index,element){
+			var comment_created_time = parsegraphData.created_time,
+				convert_date = fb_date_time(comment_created_time),
+				comments_count = parsegraphData.comments.count,
+				message_like;
+			if (parsegraphData.likes){
+				message_like = parsegraphData.likes 
+			}
+			else {
+				message_like = '';
+			}
+			if(!isset(parsegraphData.error)){
+			
+			html = '<div class="commbox commbox2">';
+			html += '<div class="imgbox">';
+			html += '<a href="http://www.facebook.com/profile.php?id='+userfb_id+'" target="_blank"><img src="https://graph.facebook.com/'+userfb_id+'/picture" alt=""></a>';
+			html += '</div>';
+			html += '<div class="comm_content">';
+			html += '<h4><a href="http://www.facebook.com/profile.php?id='+userfb_id+'" target="_blank">'+username+'</a></h4>';
+			html += '<p>'+parsegraphData.message+'</p>';
+			html += '<p>';
+			fbpostlikeornot(message_like,access_token,userpost_id);
+			html += '&nbsp;&nbsp;';
+			html += '<a href="javascript:void(0);" id="fb_comment_'+count+'" onclick="fn_focus_comment('+count+');">Comment</a>';
+			html +=	'&nbsp;&nbsp;';
+			html +=  convert_date;
+			html += '</p>';
+			html +='</div>';
+			html +='</div>';
+			if (message_like != ''){
+				var message_like_count = message_like.count,
+					message_like_data = message_like.data,
+					countmessageslike = 1;
+					html += '<div class="like_msg">';
+					html += '<img src="/theme/2/img/thumb_up.gif" width="13px" style="margin-left:-20px" alt="" />';
+				for (var key in message_like_data){
+					var like_username = message_like_data[key].name,
+						like_userfb_id = message_like_data[key].id;
+						if (countmessageslike <= 2){
+							html += '<a href="http://www.facebook.com/profile.php?id='+like_userfb_id+'" target="_blank">'+like_username+'</a>';
+							if ( countmessageslike <= (message_like_count-1)) html +=',&nbsp;';
+						}
+					countmessageslike ++;
+					
+				}
+				if ((message_like_count-2) > 0 ){
+					html += '&nbsp;and&nbsp'+(message_like_count-2)+'&nbsp;others like this.';
+				}
+				else html += '&nbsp;like this.';
+				html += '</div>';
+			}
+			if (comments_count>0){
+				var comments = parsegraphData.comments.data;
+					fb_comment_times = 1,
+					countmessages = 1;
+				toggleCommentsVisability = 0;
+				toggleCommentscontent(comments_count,userpost_id);
+				jQuery(".fb_comment_open_btn").live("click",function(){	
+					if (fb_comment_times == 0){
+						jQuery(this).attr("onclick","fn_show_commentdiv(comments_count,userpost_id);");
+						fb_comment_times = 1;
+					}
+					else{
+						jQuery(this).attr("onclick","fn_show_commentdiv_close(comments_count,userpost_id);")
+						fb_comment_times = 0;
+					}
+				})
+				for (var keymsg in comments){
+					var comment_from_name = comments[keymsg].from.name,
+						comment_from_id = comments[keymsg].from.id,
+						comment_message = comments[keymsg].message,
+						comment_created_time = comments[keymsg].created_time,
+						comment_likes = (comments[keymsg])?comments[keymsg].likes:'',
+						comment_object_id = comments[keymsg].id,
+						convert_date = fb_date_time(comment_created_time),
+						//convert_date = '123',
+						comment_div_id = userpost_id+'_'+countmessages;
+					html += '<div class="commbox" id="'+comment_div_id+'" style="'+((comments_count-1)>countmessages?"display:none;":"")+'" >';
+					html += '<div class="imgbox">';
+					html += '<a href="http://www.facebook.com/profile.php?id='+comment_from_id+'" target="_blank"><img src="https://graph.facebook.com/'+comment_from_id+'/picture"/></a>';
+					html += '</div>';
+					html += '<div class="comm_content">';
+					html += '<h4 style="float:left;"><a href="http://www.facebook.com/profile.php?id='+comment_from_id+'" target="_blank">'+comment_from_name+' </a></h4>';
+					html += '<div class="fb_comm_img">';
+					html += ' <a href="http://www.facebook.com/profile.php?id='+comment_from_id+'" target="_blank"></a>';
+					html += '&nbsp;'+comment_message+'</div>';
+					html += '<p>';
+					html += '</div>';
+					html += '<div class="bb2">'+convert_date+'&nbsp;&nbsp;';
+					fbcommentlikeornot(comment_likes, access_token, comment_object_id);
+					html += '&nbsp;&nbsp;';
+					html += '</p>';
+					html +=	'</div>';
+					html += '</div>';
+					countmessages ++;
+				}
+			}
+			html +='<div class="write_comm">';
+			html += '<div class="textarea_spacing">';
+			html += '<a href="http://www.facebook.com/profile.php?id='+userfb_id+'" target = "_blank"><img src="https://graph.facebook.com/'+userfb_id+'/picture"/></a>';
+			html +=	'<input value="Write a comment..." id="txtfb_description'+count+'" onfocus="fn_focus_comment('+count+');" onblur="fbcommen_reset_value('+count+');" onkeypress="return submitenter(\''+access_token+'\',\''+userpost_id+'\',event,'+count+')" type="search">';
+			html += '<input type="hidden" id="hncomment_text" value = "Write a comment..."/>';
+			html += '</div>';
+			html += '</div>';
+		}else{
+			html = '<div class"commbox commbox2"></div>';
+		}
+			jQuery(element).html(html);
+		})
+	}
+	</script>
+	</div>
+</body>
+</html>
